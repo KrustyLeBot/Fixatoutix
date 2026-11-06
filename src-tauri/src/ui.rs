@@ -6,7 +6,6 @@ use crate::util::url_encode;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tauri::window::{Effect, EffectsBuilder};
 use tauri::{
     AppHandle, Manager, PhysicalPosition, PhysicalRect, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
     WindowEvent,
@@ -66,7 +65,6 @@ pub fn show_panel(app: &AppHandle, state: &Arc<AppState>, anchor: Option<Anchor>
         .skip_taskbar(true)
         .visible(false)
         .disable_drag_drop_handler() // lets the list reorder by HTML5 drag and drop
-        .effects(EffectsBuilder::new().effect(Effect::Mica).build())
         .build();
     let panel = match built {
         Ok(panel) => panel,

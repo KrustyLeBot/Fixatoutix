@@ -1,47 +1,47 @@
-/* Design tokens: Windows 11 flyout look, forge-bronze accent used sparingly. */
+/* Design tokens. Flat, calm, neutral surfaces (in the spirit of the Proton apps); the forge bronze is only
+   used for the primary action and the on-state. */
 :root {
   color-scheme: light dark;
-  --font: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
-  --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
 
-  --accent: #c2581c;
-  --accent-hover: #ad4c15;
+  --accent: #b84e14;
+  --accent-hover: #9f420f;
   --accent-text: #ffffff;
-  --accent-soft: rgba(194, 88, 28, 0.12);
+  --accent-soft: #fbece2;
 
-  --bg: rgba(243, 243, 243, 0.62);
-  --card: rgba(255, 255, 255, 0.72);
-  --card-hover: rgba(255, 255, 255, 0.92);
-  --stroke: rgba(0, 0, 0, 0.08);
-  --stroke-strong: rgba(0, 0, 0, 0.2);
-  --text: #1b1b1b;
-  --text-2: #5a5a5a;
+  --window: #f6f5f3;
+  --surface: #ffffff;
+  --hover: #efedea;
+  --border: #e4e1dc;
+  --border-strong: #c9c5be;
+  --text: #1c1b1a;
+  --text-2: #6a665f;
   --danger: #b3261e;
-  --danger-soft: rgba(196, 43, 28, 0.1);
-  --ok: #107c10;
-  --shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  --danger-soft: #fdeceb;
+  --ok: #1a7f37;
+  --shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
 
   --radius: 8px;
-  --radius-sm: 4px;
+  --radius-sm: 6px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --accent: #e0702c;
     --accent-hover: #ea8447;
-    --accent-text: #1b1208;
-    --accent-soft: rgba(224, 112, 44, 0.16);
+    --accent-text: #1a1008;
+    --accent-soft: #3a2619;
 
-    --bg: rgba(32, 32, 32, 0.55);
-    --card: rgba(255, 255, 255, 0.06);
-    --card-hover: rgba(255, 255, 255, 0.1);
-    --stroke: rgba(255, 255, 255, 0.08);
-    --stroke-strong: rgba(255, 255, 255, 0.22);
-    --text: #ffffff;
-    --text-2: #c8c8c8;
+    --window: #1b1a19;
+    --surface: #252422;
+    --hover: #2f2d2b;
+    --border: #34322f;
+    --border-strong: #55524d;
+    --text: #f3f1ee;
+    --text-2: #a39e96;
     --danger: #ff9a92;
-    --danger-soft: rgba(255, 99, 85, 0.14);
-    --ok: #6ccb5f;
-    --shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --danger-soft: #3b2220;
+    --ok: #5fcf72;
+    --shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
   }
 }

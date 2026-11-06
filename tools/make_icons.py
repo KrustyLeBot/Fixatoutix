@@ -31,6 +31,7 @@ def main() -> None:
         chosen = Path(sys.argv[1]).resolve()
         if chosen != logo.resolve():
             shutil.copyfile(chosen, logo)
+    shutil.copyfile(logo, ROOT / "ui" / "logo.svg")
     ICONS.mkdir(parents=True, exist_ok=True)
 
     frames = [render(logo, s) for s in SIZES]

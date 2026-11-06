@@ -38,6 +38,8 @@
     trash: svg('<path d="M4 6h12M8 6V4h4v2M6 6l1 10h6l1-10"/>'),
     folder: svg('<path d="M2.5 5.5h5l1.5 2h8v8h-14.5z"/>'),
     refresh: svg('<path d="M16 8a6 6 0 1 0 .5 4M16 3v5h-5"/>'),
+    check: svg('<path d="M4 10.5l4 4 8-9"/>'),
+    alert: svg('<circle cx="10" cy="10" r="7.5"/><path d="M10 6v5M10 13.6v.1"/>'),
     download: svg('<path d="M10 3v10M6 9l4 4 4-4M4 16h12"/>'),
   };
 
@@ -68,32 +70,36 @@
   }
 
   function ruleHtml(r) {
-    const sub = [r.match.exe, monitorLabel(r), `${r.rect.w}×${r.rect.h} @ ${r.rect.x},${r.rect.y}`].filter(Boolean).join(" · ");
+    const modeName = r.mode === "lock" ? t("mode.lock") : t("mode.restore");
+    const sub = [modeName, monitorLabel(r), `${r.rect.w}×${r.rect.h}`].filter(Boolean).join(" · ");
+    const detail = `${r.match.exe} · ${r.rect.w}×${r.rect.h} @ ${r.rect.x},${r.rect.y}`;
     const problem = resistText(r);
+    const mode = (m, name, hint) =>
+      `<button role="menuitemradio" aria-checked="${r.mode === m}" title="${hint}" data-act="setMode" data-id="${r.id}" data-mode="${m}">${
+        r.mode === m ? `<span class="check">${I.check}</span>` : '<span class="check"></span>'
+      }${name}</button>`;
     const menu =
       ui.menu === r.id
         ? `<div class="menu" role="menu">
+             ${mode("lock", t("mode.lock"), t("mode.lock.hint"))}
+             ${mode("restore", t("mode.restore"), t("mode.restore.hint"))}
+             <hr>
              <button role="menuitem" data-act="rename" data-id="${r.id}">${I.edit}${t("menu.rename")}</button>
              <button role="menuitem" data-act="reclou" data-id="${r.id}">${I.pin}${t("menu.reclou")}</button>
              <button role="menuitem" data-act="editMatch" data-id="${r.id}">${I.filter}${t("menu.match")}</button>
+             <hr>
              <button role="menuitem" class="danger" data-act="del" data-id="${r.id}">${I.trash}${t("menu.delete")}</button>
            </div>`
         : "";
     return `<li class="rule ${r.enabled ? "" : "off"}" draggable="true" data-id="${r.id}">
-      <div class="row1">
-        ${iconHtml(r)}
-        <span class="label" title="${esc(r.label)}">${esc(r.label)}</span>
-        <button class="switch" role="switch" aria-checked="${r.enabled}" aria-label="${t("rule.toggle")}: ${esc(r.label)}" data-act="toggleRule" data-id="${r.id}"></button>
-        <button class="icon-btn" aria-label="${t("rule.more")}" aria-haspopup="menu" data-act="more" data-id="${r.id}">${I.more}</button>
+      ${iconHtml(r)}
+      <div class="body">
+        <div class="label" title="${esc(r.label)}">${esc(r.label)}</div>
+        <div class="sub" title="${esc(detail)}">${esc(sub)}</div>
+        ${problem ? `<div class="resist" role="alert">${I.alert}<span>${esc(problem)}</span></div>` : ""}
       </div>
-      <div class="sub" title="${esc(sub)}">${esc(sub)}</div>
-      <div class="row2">
-        <div class="seg" role="group" aria-label="Mode">
-          <button aria-pressed="${r.mode === "lock"}" title="${t("mode.lock.hint")}" data-act="setMode" data-id="${r.id}" data-mode="lock">${t("mode.lock")}</button>
-          <button aria-pressed="${r.mode === "restore"}" title="${t("mode.restore.hint")}" data-act="setMode" data-id="${r.id}" data-mode="restore">${t("mode.restore")}</button>
-        </div>
-      </div>
-      ${problem ? `<div class="resist" role="alert">${esc(problem)}</div>` : ""}
+      <button class="switch" role="switch" aria-checked="${r.enabled}" aria-label="${t("rule.toggle")}: ${esc(r.label)}" data-act="toggleRule" data-id="${r.id}"></button>
+      <button class="icon-btn" aria-label="${t("rule.more")}" aria-haspopup="menu" data-act="more" data-id="${r.id}">${I.more}</button>
       ${menu}
     </li>`;
   }
@@ -116,21 +122,17 @@
       <p>${t("empty.text", { key: `<kbd>${esc(S.settings.shortcut)}</kbd>` })}</p></div>`;
     return `
       <div class="head">
-        ${window.mascot(paused ? "banquet" : "guard").replace('class="mascot"', 'class="mascot" aria-hidden="true"')}
-        <div class="titles">
-          <h1>Fixatoutix</h1>
-          <div class="state ${paused ? "paused" : ""}" title="${paused ? t("app.banquet.hint") : t("app.guard.hint")}">${paused ? t("app.banquet") : t("app.guard")}</div>
-        </div>
-        <button class="switch" role="switch" aria-checked="${!paused}" aria-label="${t("app.guard")} / ${t("app.banquet")}" data-act="toggleGuard"></button>
+        <img class="mark" src="logo.svg" alt="">
+        <h1>Fixatoutix</h1>
+        <button class="chip ${paused ? "off" : ""}" role="switch" aria-checked="${!paused}" title="${paused ? t("app.banquet.hint") : t("app.guard.hint")}" data-act="toggleGuard"><span class="dot"></span>${paused ? t("app.banquet") : t("app.guard")}</button>
+        <button class="icon-btn" aria-label="${t("settings")}" data-act="settings">${I.gear}</button>
       </div>
-      <div class="toolbar"><button class="btn grow" data-act="gather">${I.gather}${t("gather")}</button></div>
+      <div class="actions-bar">
+        <button class="btn primary grow" data-act="openPicker">${I.nail}${t("nail")}</button>
+        <button class="btn" data-act="gather">${I.gather}${t("gather")}</button>
+      </div>
       ${updateBanner()}
-      <main id="main">${S.rules.length ? `<ul class="rules" id="rules">${S.rules.map(ruleHtml).join("")}</ul>` : empty}</main>
-      <footer>
-        <button class="link" data-act="settings">${I.gear}${t("settings")}</button>
-        <span class="spacer"></span>
-        <button class="btn primary" data-act="openPicker">${I.nail}${t("nail")}</button>
-      </footer>`;
+      <main id="main">${S.rules.length ? `<ul class="rules" id="rules">${S.rules.map(ruleHtml).join("")}</ul>` : empty}</main>`;
   }
 
   function viewPicker() {
@@ -138,7 +140,7 @@
       ? ui.windows
           .map(
             (w) => `<button class="pick" data-act="pick" data-hwnd="${w.hwnd}">
-              ${w.icon ? `<img class="icon" style="width:28px;height:28px" src="${esc(w.icon)}" alt="">` : `<span class="icon fallback" style="width:28px;height:28px">${esc(w.label.slice(0, 1))}</span>`}
+              ${w.icon ? `<img class="icon" src="${esc(w.icon)}" alt="">` : `<span class="icon fallback">${esc(w.label.slice(0, 1))}</span>`}
               <span class="t"><b>${esc(w.label)}</b><span>${esc(w.title)}</span></span>
               ${w.pinned ? `<span class="tag">${t("picker.pinned")}</span>` : ""}
             </button>`
@@ -146,7 +148,7 @@
           .join("")
       : `<div class="note">${t("picker.empty")}</div>`;
     return `<div class="subhead"><button class="icon-btn" aria-label="${t("back")}" data-act="back">${I.back}</button><h2>${t("picker.title")}</h2></div>
-      <main>${rows}</main><div style="height:10px"></div>`;
+      <main>${rows}</main>`;
   }
 
   const toggle = (on, act, label) =>
@@ -164,16 +166,18 @@
           <div class="setting"><div class="t">${t("s.autostart")}<small>${t("s.autostart.hint")}</small></div>${toggle(S.autostart, "toggleAutostart", t("s.autostart"))}</div>
           <div class="setting"><div class="t">${t("s.language")}</div><div class="seg">${lang("fr", "Français")}${lang("en", "English")}</div></div>
         </div>
+        <hr class="divider">
         <div class="group">
           <div class="setting"><div class="t">${t("s.updates")}<small>${t("s.updates.hint")}</small></div>${toggle(s.checkUpdates, "toggleCheck", t("s.updates"))}</div>
           <div class="setting"><div class="t">${ui.checkMsg ? `<span class="${ui.checkErr ? "" : ""}" style="${ui.checkErr ? "color:var(--danger)" : ""}">${esc(ui.checkMsg)}</span>` : ""}</div>
             <button class="btn" data-act="checkNow">${I.refresh}${t("s.updates.now")}</button></div>
         </div>
+        <hr class="divider">
         <div class="group">
           <div class="setting"><div class="t">${t("s.config")}<small>${S.portable ? t("s.config.portable") : esc(S.configPath)}</small></div>
             <button class="btn" data-act="openConfig">${I.folder}${t("s.config.open")}</button></div>
         </div>
-        <div class="about">${window.mascot("guard")}
+        <div class="about"><img class="mark" src="logo.svg" alt="">
           <b>Fixatoutix</b>
           <div>${t("about.version", { version: esc(S.version), build: esc(S.build) })}</div>
           <div class="slogan">${t("about.slogan")}</div>
