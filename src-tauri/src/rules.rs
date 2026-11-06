@@ -128,12 +128,13 @@ impl Rule {
     }
 }
 
-/// First enabled rule that matches wins.
+/// First enabled rule that matches wins (the engine itself assigns one rule per window, see `AppState::resolve`).
+#[allow(dead_code)]
 pub fn find_rule<'a>(rules: &'a [Rule], info: &WinInfo) -> Option<&'a Rule> {
     rules.iter().find(|r| r.enabled && r.matches(info))
 }
 
-/// First rule (enabled or not) that matches: used to decide between "create" and "reclouer".
+#[allow(dead_code)]
 pub fn find_rule_any<'a>(rules: &'a [Rule], info: &WinInfo) -> Option<&'a Rule> {
     rules.iter().find(|r| r.matches(info))
 }

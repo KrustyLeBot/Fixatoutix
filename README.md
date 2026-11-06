@@ -110,7 +110,11 @@ A second launch of the exe simply opens the panel of the running instance.
 - `SetWinEventHook` (out of context) listens for windows being shown or created, restored from minimized,
   finishing a move or resize, and moving programmatically (debounced 300 ms).
 - A rule matches on the **exe** (case-insensitive), optionally the **window class** and a **title regex**.
-  The first enabled rule that matches wins.
+- **One rule is one window.** Several windows of the same app (several Edge windows, say) each get their own
+  position, per window and not per tab. An open window claims a free matching rule and keeps it while it lives;
+  with several free ones it takes the rule whose rectangle is closest to where the window is, since apps reopen
+  near where they were. Nail a second Edge window and you get a second rule ("Edge 2"). A window with no free
+  rule left is left alone.
 - Placement uses `SetWindowPos` after measuring the gap between `GetWindowRect` and the DWM extended frame
   bounds, so the *visible* rectangle lands exactly where it was nailed (±1 px). Our own moves are recognised
   and ignored, so there is no feedback loop.

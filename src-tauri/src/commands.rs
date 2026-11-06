@@ -168,6 +168,7 @@ pub fn delete_rule(app: AppHandle, state: S, id: String) {
     if let Ok(mut status) = state.status.lock() {
         status.remove(&id);
     }
+    state.release_rule(&id);
     state.save();
     let _ = app.emit("state-changed", ());
 }

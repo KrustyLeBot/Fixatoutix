@@ -3,7 +3,7 @@
 
 use crate::engine::win;
 use crate::i18n::{nailed_variant, tr};
-use crate::rules::{find_rule_any, Match, Mode, MonitorRef, Rule};
+use crate::rules::{Match, Mode, MonitorRef, Rule};
 use crate::state::{AppState, Status};
 use crate::util::{label_from_exe, now_iso};
 use crate::{ui, updater};
@@ -40,7 +40,17 @@ pub fn nail_hwnd(state: &AppState, hwnd: HWND) -> Result<Nailed, NailError> {
     let now = now_iso();
     let (label, created, rule_id) = {
         let mut config = state.config.lock().map_err(|_| NailError::NotAWindow)?;
-        if let Some(index) = config.rules.iter().position(|r| find_rule_any(std::slice::from_ref(r), &info).is_some()) {
+        // The rule this window already claimed, else a matching rule nobody has claimed (the window opened
+        // while paused...). Otherwise this is another window of the same app: it gets its own rule.
+        let claimed = state.claimed_rule(info.hwnd);
+        let index = claimed
+            .and_then(|id| config.rules.iter().position(|r| r.id == id && r.matches(&info)))
+            .or_else(|| {
+                let taken: std::collections::HashSet<String> =
+                    state.claims.lock().map(|c| c.values().cloned().collect()).unwrap_or_default();
+                config.rules.iter().position(|r| r.matches(&info) && !taken.contains(&r.id))
+            });
+        if let Some(index) = index {
             let rule = &mut config.rules[index];
             rule.rect = rect;
             rule.monitor = monitor_ref;
@@ -51,7 +61,7 @@ pub fn nail_hwnd(state: &AppState, hwnd: HWND) -> Result<Nailed, NailError> {
             let rule = Rule {
                 id: uuid::Uuid::new_v4().to_string(),
                 enabled: true,
-                label: label_from_exe(&info.exe),
+                label: unique_label(&config.rules, &label_from_exe(&info.exe)),
                 matcher: Match { exe: info.exe.clone(), class_name: None, title_regex: None },
                 rect,
                 monitor: monitor_ref,
@@ -67,6 +77,7 @@ pub fn nail_hwnd(state: &AppState, hwnd: HWND) -> Result<Nailed, NailError> {
         }
     };
     state.save();
+    state.claim(info.hwnd, &rule_id);
     if let Ok(mut status) = state.status.lock() {
         status.insert(rule_id, Status::Ok);
     }
@@ -110,10 +121,16 @@ pub fn reclou_rule(state: &AppState, id: &str) -> Result<Nailed, String> {
         .find(|r| r.id == id)
         .cloned()
         .ok_or("unknown rule")?;
-    let hwnd = win::enum_top_level()
-        .into_iter()
-        .find(|h| win::candidate(*h).is_some_and(|info| rule.matches(&info)))
+    let hwnd = state
+        .claimed_window(&rule.id)
+        .map(win::hwnd_from)
+        .or_else(|| {
+            win::enum_top_level().into_iter().find(|h| {
+                win::candidate(*h).is_some_and(|info| rule.matches(&info) && state.claimed_rule(info.hwnd).is_none())
+            })
+        })
         .ok_or("no_window")?;
+    state.claim(win::hwnd_raw(hwnd), &rule.id);
     nail_hwnd(state, hwnd).map_err(|e| match e {
         NailError::NotAWindow => "no_window".to_string(),
         NailError::WrongState => "wrong_state".to_string(),
@@ -133,7 +150,6 @@ pub struct WindowDto {
 
 /// Visible application windows for the "Clouer !" picker, in Z order.
 pub fn list_windows(state: &AppState) -> Vec<WindowDto> {
-    let rules = state.config.lock().map(|c| c.rules.clone()).unwrap_or_default();
     win::enum_top_level()
         .into_iter()
         .filter_map(win::candidate)
@@ -141,7 +157,7 @@ pub fn list_windows(state: &AppState) -> Vec<WindowDto> {
             hwnd: info.hwnd as i64,
             label: label_from_exe(&info.exe),
             icon: win::icon_data_url(&info.exe_path),
-            pinned: find_rule_any(&rules, &info).is_some(),
+            pinned: state.claimed_rule(info.hwnd).is_some(),
             title: info.title,
             exe: info.exe,
         })
@@ -254,4 +270,15 @@ pub fn spawn_update_checker(app: AppHandle, state: Arc<AppState>) {
             }
         })
         .ok();
+}
+
+/// "Edge", then "Edge 2", "Edge 3"...: each nailed window of an app has its own entry.
+fn unique_label(rules: &[Rule], base: &str) -> String {
+    if !rules.iter().any(|r| r.label == base) {
+        return base.to_string();
+    }
+    (2..)
+        .map(|n| format!("{base} {n}"))
+        .find(|candidate| !rules.iter().any(|r| &r.label == candidate))
+        .unwrap_or_else(|| base.to_string())
 }

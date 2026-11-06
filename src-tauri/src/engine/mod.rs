@@ -5,7 +5,7 @@ pub mod apply;
 pub mod hooks;
 pub mod win;
 
-use crate::rules::{self, Mode, Rule};
+use crate::rules::{Mode, Rule};
 use crate::state::{AppState, Status};
 use apply::{AntiLoop, Outcome};
 use std::collections::{HashMap, HashSet};
@@ -179,7 +179,7 @@ fn process(app: &AppHandle, state: &AppState, guard: &mut AntiLoop, raw: isize, 
     }
     let info = win::candidate(hwnd)?;
     let rules: Vec<Rule> = state.config.lock().ok()?.rules.clone();
-    let Some(rule) = rules::find_rule(&rules, &info) else {
+    let Some(rule) = state.resolve(&rules, &info) else {
         // The exe is known but the title/class did not match yet: the window may still be setting up.
         let may_match_later = matches!(kind, Kind::Appear { retry: false })
             && rules.iter().any(|r| r.enabled && r.matcher.exe.eq_ignore_ascii_case(&info.exe));
@@ -188,8 +188,8 @@ fn process(app: &AppHandle, state: &AppState, guard: &mut AntiLoop, raw: isize, 
     if matches!(kind, Kind::Location | Kind::MoveEnd) && rule.mode != Mode::Lock {
         return None;
     }
-    let outcome = apply::apply(rule, hwnd, guard, false);
-    record(app, state, rule, &info.title, outcome);
+    let outcome = apply::apply(&rule, hwnd, guard, false);
+    record(app, state, &rule, &info.title, outcome);
     None
 }
 
@@ -234,9 +234,9 @@ fn gather(app: &AppHandle, state: &AppState, guard: &mut AntiLoop) {
     }
     for hwnd in win::enum_top_level() {
         let Some(info) = win::candidate(hwnd) else { continue };
-        let Some(rule) = rules::find_rule(&rules, &info) else { continue };
-        let outcome = apply::apply(rule, hwnd, guard, true);
-        record(app, state, rule, &info.title, outcome);
+        let Some(rule) = state.resolve(&rules, &info) else { continue };
+        let outcome = apply::apply(&rule, hwnd, guard, true);
+        record(app, state, &rule, &info.title, outcome);
     }
     let _ = app.emit("state-changed", ());
 }
