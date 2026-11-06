@@ -50,7 +50,7 @@ jobs:
           Get-Content selftest.txt
           if ($p.ExitCode -ne 0) { throw "selftest failed with $($p.ExitCode) failing check(s)" }
       # Starts for real (tray + engine, no panel) and must still be alive after a few seconds.
-      - name: Smoke test: it starts and stays alive
+      - name: "Smoke test (it starts and stays alive)"
         timeout-minutes: 3
         shell: pwsh
         run: |
