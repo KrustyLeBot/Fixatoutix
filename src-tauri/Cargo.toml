@@ -1,0 +1,58 @@
+[package]
+name = "fixatoutix"
+version = "1.0.0"
+description = "Par Toutatis, tes fenêtres ne bougeront plus !"
+authors = ["Jérôme"]
+edition = "2021"
+rust-version = "1.80"
+publish = false
+
+[[bin]]
+name = "Fixatoutix"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-autostart = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+regex = "1"
+uuid = { version = "1", features = ["v4"] }
+sha2 = "0.10"
+base64 = "0.22"
+png = "0.17"
+ureq = { version = "2", default-features = false }
+
+[target.'cfg(windows)'.dependencies]
+# TLS through SChannel (the Windows system stack and trust store): no C toolchain, smaller exe.
+ureq = { version = "2", default-features = false, features = ["native-tls"] }
+native-tls = "0.2"
+windows = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Dwm",
+  "Win32_Graphics_Gdi",
+  "Win32_Storage_FileSystem",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Registry",
+  "Win32_System_Threading",
+  "Win32_UI_Accessibility",
+  "Win32_UI_HiDpi",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[features]
+# Embeds the UI in the exe. Always on for release builds (CI): `cargo build --release --features custom-protocol`.
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

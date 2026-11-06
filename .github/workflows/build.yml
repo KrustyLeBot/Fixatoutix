@@ -1,0 +1,101 @@
+# Do not rename this file: GitHub numbers runs per workflow file and the run number is the app's build number
+# (stamped in the exe, compared by the self-updater).
+#
+# The exe is built here and ONLY here: nothing binary is ever committed, and the "latest" release below is the
+# single place an exe comes from.
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Read-only token unless a job asks for more.
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      FIXATOUTIX_BUILD: ${{ github.run_number }}
+    defaults:
+      run:
+        working-directory: src-tauri
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: src-tauri
+      - name: Tests (rules, config, updater)
+        run: cargo test --locked
+      - name: Build the exe (one file, UI embedded)
+        run: cargo build --release --locked --features custom-protocol
+      - name: Stage the exe
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path ../dist | Out-Null
+          Copy-Item target/release/Fixatoutix.exe ../dist/Fixatoutix.exe
+          Get-Item ../dist/Fixatoutix.exe | Select-Object Name, Length
+      # The built exe checks itself on a real Windows: DPI awareness from the manifest, monitors, window
+      # enumeration, DWM bounds, icon extraction. It is a windowed exe: Start-Process waits, the report goes to a file.
+      - name: Self-test of the built exe
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath ..\dist\Fixatoutix.exe -ArgumentList '--selftest', 'selftest.txt' -Wait -PassThru
+          Get-Content selftest.txt
+          if ($p.ExitCode -ne 0) { throw "selftest failed with $($p.ExitCode) failing check(s)" }
+      # Starts for real (tray + engine, no panel) and must still be alive after a few seconds.
+      - name: Smoke test: it starts and stays alive
+        timeout-minutes: 3
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath ..\dist\Fixatoutix.exe -ArgumentList '--background' -PassThru
+          Start-Sleep -Seconds 8
+          if ($p.HasExited) { throw "Fixatoutix exited early with code $($p.ExitCode)" }
+          Write-Host "alive after 8 s, working set $([math]::Round($p.WorkingSet64 / 1MB, 1)) MB"
+          Stop-Process -Id $p.Id -Force
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fixatoutix-windows
+          path: dist/Fixatoutix.exe
+          retention-days: 7
+
+  # One "latest" release carrying the exe, published only when the build above succeeded. The title ends with the
+  # build number: that is what the in-app updater reads.
+  release:
+    needs: windows
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    # two pushes close together: their releases replace "latest" one after the other, never at the same time
+    concurrency:
+      group: release-latest
+      cancel-in-progress: false
+    permissions:
+      contents: write # needed to publish the release
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: dist
+          name: fixatoutix-windows
+      - name: Publish the "latest" release
+        shell: bash
+        run: |
+          sum=$(sha256sum dist/Fixatoutix.exe | cut -d' ' -f1)
+          gh release delete latest --cleanup-tag --yes || true
+          gh release create latest dist/Fixatoutix.exe \
+            --title "Fixatoutix build ${{ github.run_number }}" \
+            --notes "Build ${{ github.run_number }} of commit ${{ github.sha }}.
+
+          SHA-256: \`$sum\`
+
+          Portable: download \`Fixatoutix.exe\`, put it anywhere, run it. Installed copies update themselves." \
+            --target "${{ github.sha }}" \
+            --latest
