@@ -139,7 +139,18 @@ pub fn toast(app: &AppHandle, kind: &str, title: &str, sub: &str) {
     let app = app.clone();
     let url = format!("toast.html?k={}&t={}&s={}", url_encode(kind), url_encode(title), url_encode(sub));
     let handle = app.clone();
-    let _ = handle.run_on_main_thread(move || {
+    // Never create a window from where we are called: panel commands run ON the main thread, and building
+    // a WebView2 window from there deadlocks on Windows (the app freezes). A helper thread queues the work
+    // to the event loop instead, which runs it once the command has returned.
+    std::thread::spawn(move || {
+        let _ = handle.run_on_main_thread(move || create_toast(&app, &url));
+    });
+}
+
+fn create_toast(app: &AppHandle, url: &str) {
+    let url = url.to_string();
+    let app = app.clone();
+    {
         for (label, window) in app.webview_windows() {
             if label.starts_with("toast-") {
                 let _ = window.close();
@@ -189,5 +200,5 @@ pub fn toast(app: &AppHandle, kind: &str, title: &str, sub: &str) {
                 }
             });
         });
-    });
+    }
 }
